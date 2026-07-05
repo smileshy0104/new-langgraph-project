@@ -51,6 +51,7 @@ def build_model(tools):
 class AgentState(TypedDict):
     # Annotated[..., operator.add] 表示每个节点返回的 messages 会“拼接”到已有列表后面，
     # 而不是覆盖，从而保留完整的对话历史。
+    # operator.add 是一个函数，用于“合并”多个消息，这里用它来“追加”消息
     messages: Annotated[Sequence[BaseMessage], operator.add]
 
 
@@ -75,6 +76,7 @@ model = build_model(tools)    # 构建并绑定了工具的模型实例
 def should_continue(state: AgentState) -> str:
     last_message = state["messages"][-1]  # 取出最新一条消息
     # 如果模型的回复里带有工具调用请求，就走到 tools 节点去执行
+    # isinstance(last_message, AIMessage)：判断消息是不是模型回复
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
         return "tools"
     # 否则说明模型已给出最终答案，结束整个图
@@ -83,6 +85,7 @@ def should_continue(state: AgentState) -> str:
 
 # --- agent 节点：调用大模型，返回模型的回复 ---
 async def call_model(state: AgentState) -> dict:
+    # async invoke：异步调用模型，返回模型回复
     response = await model.ainvoke(state["messages"])  # 把完整历史发给模型
     # 返回值会按 AgentState 的合并规则追加到 messages 中
     return {"messages": [response]}
